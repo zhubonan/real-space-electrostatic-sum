@@ -6,8 +6,7 @@ import pytest
 import numpy as np
 from rsum.rsum import energy
 
-@pytest.fixture()
-def al_base():
+def _al_base():
     """Base case for Al test"""
     a_1 = np.array([5.41141973394663, 0.00000000000000, 0.00000000000000])
     a_2 = np.array([2.70570986697332, 4.68642696013821, 0.00000000000000])
@@ -23,6 +22,8 @@ def al_base():
 
     ewald = -2.69595457432924945
     return lattice, positions, chg, rc, rd, ewald
+
+al_base = pytest.fixture(_al_base)
 
 def test_energy(al_base):
     """

@@ -9,7 +9,6 @@ import numpy as np
 sqrt_pi = sqrt(pi)
 one_third = 1.0 / 3.0
 
-
 def energy(lattice, positions, z, rc, rd):
     """
     Compute the energies
@@ -24,7 +23,7 @@ def energy(lattice, positions, z, rc, rd):
 
     a1, a2, a3 = lattice
     vol = abs(np.cross(a1, a2) @ a3)
-    rho = sum(z) / vol   # Average charge density
+    rho = z.sum() / vol   # Average charge density
     nions = positions.shape[0]
     assert len(z) == nions, "Mismatch in the ionic positions and the charges array"
 
