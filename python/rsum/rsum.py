@@ -44,17 +44,7 @@ def energy(lattice, positions, z, rc, rd):
     nshifts = (shift1max * 2 + 1) * (shift2max * 2 + 1) * (shift3max * 2 + 1)
 
     # Pre-allocate the shift vectors
-    shift_vectors = np.zeros((nshifts, 3), dtype=np.float)
-    shift_indices = np.zeros((nshifts, 3), dtype=np.int)
-    iter_tmp = product(range(-shift3max, shift3max+1),
-                                            range(-shift2max, shift2max+1),
-                                            range(-shift1max, shift1max+1),)
-    itmp = 0
-    for shift3, shift2, shift1 in iter_tmp:
-        shift_vectors[itmp, :] = shift1 * a1 + shift2 * a2 + shift3 * a3
-        shift_indices[itmp, :] = (shift1, shift2, shift3)
-        itmp += 1
-
+    shift_vectors, shift_indices = comp_shifts(lattice, rc)
     # Pre-allocate E_i matrix and \Delta E_i matrix
     E_i = np.zeros((nions, nions), dtype=np.float)
     delta_E_i = np.zeros(nions, dtype=np.float)
@@ -91,7 +81,7 @@ def energy(lattice, positions, z, rc, rd):
                     continue
 
                 # Update energy
-                E_i[i, j] = erfc(rij / rd) / rij
+                E_i[i, j] += erfc(rij / rd) / rij * z[j]
 
                 # Update the total change inside the cut-off sphere (Q_i)
                 # Positive and negative terms have to be counted separately
@@ -134,6 +124,31 @@ def comp_delta_ei(ra, rho, zi, rd):
     Compute the correction term - Eq(19) in the reference
     """
     value = - pi * zi * rho * ra * ra + pi * zi * rho * ( ra * ra - rd * rd / 2.0)\
-                    * erf(ra / rd) + sqrt_pi * zi * rho * ra * rd * exp(-ra * ra / (rd * rd)) \
-                    - 1.0 / (sqrt_pi * rd) * zi * zi
+                    * erf(ra / rd) + sqrt_pi * zi * rho * ra * rd * exp(-ra * ra / (rd * rd))
+    # The compensation term is only needed if the charge and the background has the same sign
+    if rho * zi > 0.0:
+        value += -1.0 / (sqrt_pi * rd) * zi * zi
     return value
+
+
+def comp_shifts(lattice, rc):
+    invl = np.linalg.inv(lattice)
+    a1, a2, a3 = lattice
+    # Compute the maximum shifts needed
+    shift1max, shift2max, shift3max = np.ceil(rc * np.linalg.norm(invl, axis=1)).astype(int)
+
+    # Loop over the cells and pre-compute the shift vectors
+    nshifts = (shift1max * 2 + 1) * (shift2max * 2 + 1) * (shift3max * 2 + 1)
+
+    # Pre-allocate the shift vectors
+    shift_vectors = np.zeros((nshifts, 3), dtype=np.float)
+    shift_indices = np.zeros((nshifts, 3), dtype=np.int)
+    iter_tmp = product(range(-shift3max, shift3max+1),
+                                            range(-shift2max, shift2max+1),
+                                            range(-shift1max, shift1max+1),)
+    itmp = 0
+    for shift3, shift2, shift1 in iter_tmp:
+        shift_vectors[itmp, :] = shift1 * a1 + shift2 * a2 + shift3 * a3
+        shift_indices[itmp, :] = (shift1, shift2, shift3)
+        itmp += 1
+    return shift_vectors, shift_indices

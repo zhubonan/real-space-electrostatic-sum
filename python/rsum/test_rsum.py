@@ -18,12 +18,30 @@ def _al_base():
     h_max = 4.42
     r_d_hat = 2.0
 
-    rc = 3.0 * r_d_hat * 2 * h_max
+    rc = 3.0 * r_d_hat ** 2 * h_max
     rd = r_d_hat * h_max
 
     ewald = -2.69595457432924945
     return lattice, positions, chg, rc, rd, ewald
 
+def _si_base():
+    """Base case for Al test"""
+    # Si
+    a_1 = np.array([7.25654832321381, 0.00000000000000, 0.00000000000000])
+    a_2 = np.array([3.62827416160690, 6.28435519169252, 0.00000000000000])
+    a_3 = np.array([3.62827416160690, 2.09478506389751, 5.92494689524090])
+    lattice = np.stack([a_1, a_2, a_3], axis=0)
+    loc = np.array([[0.0,  0.0,  0.0],
+                    [0.25, 0.25, 0.25]])
+    positions = (np.vstack((a_1, a_2, a_3)).T).dot(loc.T).T # to cartesian
+    chg = 4.0 * np.ones(positions.shape[0])
+    h_max = 5.92
+    r_d_hat = 2.0
+    ewald = -8.39857465282205418
+    rc = 3.0 * r_d_hat ** 2 * h_max
+    rd = r_d_hat * h_max
+
+    return lattice, positions, chg, rc, rd, ewald
 
 def _nacl_base():
     """Base case for Al test"""
@@ -42,7 +60,7 @@ def _nacl_base():
     positions[1, :] = [1., 1., 1.]
     chg = np.array([-1., 1.])
 
-    rc = 3.0 * r_d_hat * 2 * h_max
+    rc = 3.0 * r_d_hat ** 2 * h_max
     rd = r_d_hat * h_max
 
     ewald = -1.747564594633
@@ -51,6 +69,7 @@ def _nacl_base():
 
 al_base = pytest.fixture(_al_base)
 nacl_base = pytest.fixture(_nacl_base)
+si_base = pytest.fixture(_si_base)
 
 
 def test_energy_al(al_base):
@@ -61,7 +80,17 @@ def test_energy_al(al_base):
     eng, E_i, delta_E_i = energy(*al_base[:5])
     ewald = al_base[-1]
     assert eng == E_i[0, 0] + delta_E_i[0]
-    assert pytest.approx(eng == ewald, rel=1e-9)
+    assert eng == pytest.approx(ewald, abs=1e-9)
+
+
+def test_energy_si(si_base):
+    """
+    Test the computeation of energy
+    """
+
+    eng, E_i, delta_E_i = energy(*si_base[:5])
+    ewald = si_base[-1]
+    assert eng == pytest.approx(ewald, abs=1e-9)
 
 
 def test_energy_nacl(nacl_base):
@@ -72,4 +101,4 @@ def test_energy_nacl(nacl_base):
     eng, E_i, delta_E_i = energy(*nacl_base[:5])
     ewald = nacl_base[-1]
     assert eng == E_i.sum() + delta_E_i.sum()
-    assert pytest.approx(eng == ewald, rel=1e-9)
+    assert eng == pytest.approx(ewald, rel=1e-9)
