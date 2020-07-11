@@ -2,7 +2,8 @@
 Benchmarking
 """
 
-from .test_rsum import _al_base as al_base
+from .test_rsum import _al_base as al
+from .test_rsum import _nacl_base as nacl
 from .rsum import energy
 from time import time
 
@@ -26,7 +27,8 @@ def timeit(timeout=10):
     return _wrapped
 
 
-al_base_test = timeit(timeout=1)(energy)
+energy = timeit(timeout=5)(energy)
 
 if __name__ == '__main__':
-    al_base_test(*al_base()[:-1])
+    energy(*al()[:-1])
+    energy(*nacl()[:-1])

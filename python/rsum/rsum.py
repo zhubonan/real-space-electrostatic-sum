@@ -19,11 +19,15 @@ def energy(lattice, positions, z, rc, rd):
       z: a (N) array of the charges 
       rc: cut off radius
       rd: adaptive cut off
+
+    Retruns:
+      A tuple of energy, E_i matrix, delta_E_i array
     """
 
     a1, a2, a3 = lattice
     vol = abs(np.cross(a1, a2) @ a3)
-    rho = z.sum() / vol   # Average charge density
+    rho_positive = z[z > 0].sum() / vol  # Neutralising backgroud for positive 
+    rho_negative = z[z < 0].sum() / vol  # Neutralising backgroud for negative 
     nions = positions.shape[0]
     assert len(z) == nions, "Mismatch in the ionic positions and the charges array"
 
@@ -36,6 +40,25 @@ def energy(lattice, positions, z, rc, rd):
     # Compute the maximum shifts needed
     shift1max, shift2max, shift3max = np.ceil(rc * np.linalg.norm(invl, axis=1)).astype(int)
 
+    # Loop over the cells and pre-compute the shift vectors
+    nshifts = (shift1max * 2 + 1) * (shift2max * 2 + 1) * (shift3max * 2 + 1)
+
+    # Pre-allocate the shift vectors
+    shift_vectors = np.zeros((nshifts, 3), dtype=np.float)
+    shift_indices = np.zeros((nshifts, 3), dtype=np.int)
+    iter_tmp = product(range(-shift3max, shift3max+1),
+                                            range(-shift2max, shift2max+1),
+                                            range(-shift1max, shift1max+1),)
+    itmp = 0
+    for shift3, shift2, shift1 in iter_tmp:
+        shift_vectors[itmp, :] = shift1 * a1 + shift2 * a2 + shift3 * a3
+        shift_indices[itmp, :] = (shift1, shift2, shift3)
+        itmp += 1
+
+    # Pre-allocate E_i matrix and \Delta E_i matrix
+    E_i = np.zeros((nions, nions), dtype=np.float)
+    delta_E_i = np.zeros(nions, dtype=np.float)
+
 
     energy = 0.0
 
@@ -43,21 +66,20 @@ def energy(lattice, positions, z, rc, rd):
 
         # Prepare for loop over neighboring ions
         ei = 0.0
-        qi = z[i]
+        qi_positive = z[i]
+        qi_negative = z[i]
 
         # Loop over the cells
         iter_tmp = product(range(-shift3max, shift3max+1),
                                               range(-shift2max, shift2max+1),
                                               range(-shift1max, shift1max+1),)
-        for shift3, shift2, shift1 in iter_tmp:
+        for origin_j, shift_idx in zip(shift_vectors, shift_indices):
            
-            origin_j = shift1 * a1 + shift2 * a2 + shift3 * a3
-
             # Loop over the other ions
             for j in range(nions):
                
                 # Connect interactive with itself
-                if (i==j) and all([shift1==0, shift2==0, shift3==0]):
+                if (i==j) and all(shift_idx == 0):
                     continue
 
                 # Distance
@@ -68,19 +90,50 @@ def energy(lattice, positions, z, rc, rd):
                 if rij > rc:
                     continue
 
-                # Update energy and charge
-                ei = ei + z[j] * erfc(rij / rd) / rij
-                qi = qi + z[j]
+                # Update energy
+                E_i[i, j] = erfc(rij / rd) / rij
+
+                # Update the total change inside the cut-off sphere (Q_i)
+                # Positive and negative terms have to be counted separately
+                if z[j] > 0.:
+                    qi_positive += z[j]
+                if z[j] < 0.:
+                    qi_negative += z[j]
 
         # Apply 1/2 z[i] factor to energy
-        ei = 0.5 * z[i] * ei
+        E_i[i, :] = E_i[i, :] * 0.5 * z[i]
+        ei = E_i[i, :].sum()
 
-        # Correction terms
-        ra = (3.0 * qi / (4.0 * pi * rho)) ** one_third  # adaptive cutoff
-        ei = ei - pi * z[i] * rho * ra * ra + pi * z[i] * rho * ( ra * ra - rd * rd / 2.0)\
-            * erf(ra / rd) + sqrt_pi * z[i] * rho * ra * rd * exp(-ra * ra / (rd * rd)) \
-            - 1.0 / (sqrt_pi * rd) * z[i] * z[i]
+        # Compute the correction term for positive and negative ions separately
+        # Correction terms - positive
+        if rho_positive != 0.0:
+            ra = (3.0 * qi_positive / (4.0 * pi * rho_positive)) ** one_third  # adaptive cutoff
+            delta_ei_positive = comp_delta_ei(ra, rho_positive, z[i], rd)
+        else:
+            delta_ei_positive = 0.0
 
-        energy += ei
+        # Correction terms - negative
+        if rho_negative != 0.0:
+            ra = (3.0 * qi_negative / (4.0 * pi * rho_negative)) ** one_third  # adaptive cutoff
+            # Accumulate the correction term
+            delta_ei_negative = comp_delta_ei(ra, rho_negative, z[i], rd)
+        else:
+            delta_ei_negative = 0.0
 
-    return float(energy)
+
+        # Compute the total correction term
+        delta_ei = delta_ei_negative + delta_ei_positive
+        delta_E_i[i] = delta_ei
+        energy += ei + delta_ei
+
+    return float(energy), E_i, delta_E_i
+
+
+def comp_delta_ei(ra, rho, zi, rd):
+    """
+    Compute the correction term - Eq(19) in the reference
+    """
+    value = - pi * zi * rho * ra * ra + pi * zi * rho * ( ra * ra - rd * rd / 2.0)\
+                    * erf(ra / rd) + sqrt_pi * zi * rho * ra * rd * exp(-ra * ra / (rd * rd)) \
+                    - 1.0 / (sqrt_pi * rd) * zi * zi
+    return value
