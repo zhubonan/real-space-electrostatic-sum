@@ -51,7 +51,6 @@ def energy(lattice, positions, z, rc, rd):
 
 
     energy = 0.0
-
     for i in range(nions):
 
         # Prepare for loop over neighboring ions
@@ -60,9 +59,6 @@ def energy(lattice, positions, z, rc, rd):
         qi_negative = z[i]
 
         # Loop over the cells
-        iter_tmp = product(range(-shift3max, shift3max+1),
-                                              range(-shift2max, shift2max+1),
-                                              range(-shift1max, shift1max+1),)
         for origin_j, shift_idx in zip(shift_vectors, shift_indices):
            
             # Loop over the other ions
@@ -123,7 +119,7 @@ def comp_delta_ei(ra, rho, zi, rd):
     """
     Compute the correction term - Eq(19) in the reference
     """
-    value = - pi * zi * rho * ra * ra + pi * zi * rho * ( ra * ra - rd * rd / 2.0)\
+    value = -pi * zi * rho * ra * ra + pi * zi * rho * ( ra * ra - rd * rd / 2.0)\
                     * erf(ra / rd) + sqrt_pi * zi * rho * ra * rd * exp(-ra * ra / (rd * rd))
     # The compensation term is only needed if the charge and the background has the same sign
     if rho * zi > 0.0:
