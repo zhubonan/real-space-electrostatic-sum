@@ -141,6 +141,29 @@ class TestRealSpaceElectrostaticSum(unittest.TestCase):
         ewald_per_ion = -244.05500850908111943 / loc.shape[0]
         self.assertAlmostEqual(ene_per_ion, ewald_per_ion, places=9)
 
+    def test_energy_charge_neutral(self):
+
+        # Al
+        a_1 = np.array([1.0, 1.0, 0.0])
+        a_2 = np.array([0.0, 1.0, 1.0])
+        a_3 = np.array([1.0, 0.0, 1.0])
+ 
+        loc = np.zeros([2,3])
+        loc[1, :] = [1., 1., 1.]
+        chg = np.array([-1.0, 1.0])
+        h_max = np.sqrt(4.0 / 3.0)
+        r_d_hat = 3.0
+
+        rc = 3.0 * r_d_hat ** 2 * h_max
+        rd = r_d_hat * h_max
+
+        ewald = -1.747564594633
+
+        ene = real_space_electrostatic_sum.energy(
+                a_1, a_2, a_3, loc.shape[0], loc[:,0], loc[:,1], loc[:,2], chg,
+                3.0*r_d_hat**2*h_max, r_d_hat*h_max)
+        self.assertAlmostEqual(ene, ewald, places=9)
+
     def test_force(self):
 
         # SiO2
