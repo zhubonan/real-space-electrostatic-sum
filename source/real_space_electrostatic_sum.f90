@@ -44,7 +44,7 @@ subroutine energy(a1, a2, a3, n, rx, ry, rz, z, rc, rd, e)
     real(dp), intent(in)   ::  rd
     real(dp), intent(out)  ::  e
 
-    real(dp) ::  vol, rho, ei, qi, rij, a(3,3), bt(3,3), &
+    real(dp) ::  vol, rho_pos, rho_neg, ei, ei_corr, qi_pos, qi_neg, rij, a(3,3), bt(3,3), &
                  d_100, d_010, d_001, origin_j(3), xyz_ij(3), ra
     integer  ::  i, j, shift1, shift2, shift3, &
                  shift1max, shift2max, shift3max
@@ -55,7 +55,17 @@ subroutine energy(a1, a2, a3, n, rx, ry, rz, z, rc, rd, e)
           a1(2) * (a2(3)*a3(1) - a2(1)*a3(3)) + &
           a1(3) * (a2(1)*a3(2) - a2(2)*a3(1))
     vol = abs(vol) ! for left-handed coordinate systems
-    rho = sum(z) / vol
+    rho_pos = 0.0_dp
+    rho_neg = 0.0_dp
+    do i = 1, n
+        if (z(i) > 0.0_dp) then
+            rho_pos = rho_pos + z(i)
+        else
+            rho_neg = rho_neg + z(i)
+        end if
+    end do
+    rho_pos = rho_pos / vol
+    rho_neg = rho_neg / vol
 
     ! compute reciprocal lattice vectors
     a(:,1) = a1;  a(:,2) = a2;  a(:,3) = a3
@@ -79,7 +89,10 @@ subroutine energy(a1, a2, a3, n, rx, ry, rz, z, rc, rd, e)
     
         ! prepare for loop over neighboring ions
         ei = 0.0_dp
-        qi = z(i)  ! b/c the i==j part of the sum is skipped below
+
+        ! Accumulated charge with the cut off sphere
+        qi_pos = z(i)  ! b/c the i==j part of the sum is skipped below
+        qi_neg = z(i)
 
         ! loop over cells
         do shift3 = -shift3max, shift3max
@@ -103,7 +116,13 @@ subroutine energy(a1, a2, a3, n, rx, ry, rz, z, rc, rd, e)
 
                 ! update energy and charge
                 ei = ei + z(j) * erfc(rij/rd) / rij
-                qi = qi + z(j)
+
+                ! Update charge for the positive and negative systems
+                if (z(j) > 0.0_dp) then
+                    qi_pos = qi_pos + z(j)
+                else 
+                    qi_neg = qi_neg + z(j)
+                end if 
 
             end do  ! j
 
@@ -115,17 +134,41 @@ subroutine energy(a1, a2, a3, n, rx, ry, rz, z, rc, rd, e)
         ei = 0.5_dp * z(i) * ei
     
         ! add correction terms
-        ra = (3.0_dp * qi / (4.0_dp * pi * rho))**one_third  ! adaptive cutoff
-        ei = ei - pi * z(i) * rho * ra * ra  &
-              + pi * z(i) * rho * (ra*ra - rd*rd/2.0_dp) * erf(ra/rd)  &
-              + sqrt_pi * z(i) * rho * ra * rd * exp(-ra*ra/(rd*rd)) &
-              - 1.0/(sqrt_pi * rd) * z(i) * z(i)
+        if (rho_pos /= 0.0_dp) then
+            ! Use absolute value here - edge case can happen where qi_pos and pi rho_pos takes the opposite sign 
+            call add_energy_corr_term(z(i), qi_pos, rho_pos, rd, ei_corr)
+            ei = ei + ei_corr
+        end if 
+
+        if (rho_neg /= 0.0_dp) then
+            call add_energy_corr_term(z(i), qi_neg, rho_neg, rd, ei_corr)
+            ei = ei + ei_corr
+        end if 
 
         ! increment the total energy
         e = e + ei
 
     end do  ! i
 
+end subroutine
+
+
+subroutine add_energy_corr_term(zi, qi, rho, rd, corr_term)
+!______________________________________________________________________________
+!
+    implicit none
+    real(dp), intent(in)   :: zi, qi, rho, rd
+    real(dp), intent(out)  :: corr_term
+
+    real(dp)               :: ra
+    ra = abs((3.0_dp * qi / (4.0_dp * pi * rho)))**one_third  ! adaptive cutoff
+    corr_term = - pi * zi * rho * ra * ra  &
+                + pi * zi * rho * (ra*ra - rd*rd / 2.0_dp) * erf(ra/rd)  &
+                + sqrt_pi * zi * rho * ra * rd * exp(-ra*ra/(rd*rd))
+    ! Self-term if the subsystem and the ion zi is included in the subsystem
+    if (zi * rho > 0.0_dp) then
+        corr_term = corr_term - 1.0_dp / (sqrt_pi * rd) * zi * zi
+    end if 
 end subroutine
 
 subroutine force(a1, a2, a3, n, rx, ry, rz, z, rc, rd, fx, fy, fz)
