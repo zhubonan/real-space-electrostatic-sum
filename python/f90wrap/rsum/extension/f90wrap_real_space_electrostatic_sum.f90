@@ -1,4 +1,4 @@
-! Module real_space_electrostatic_sum defined in file ../source/real_space_electrostatic_sum.f90
+! Module real_space_electrostatic_sum defined in file real_space_electrostatic_sum.f90
 
 subroutine f90wrap_energy(a1, a2, a3, n, rx, ry, rz, z, rc, rd, e, n0, n1, n2, n3)
     use real_space_electrostatic_sum, only: energy
@@ -139,5 +139,5 @@ subroutine f90wrap_real_space_electrostatic_sum__get__one_third(f90wrap_one_thir
     f90wrap_one_third = real_space_electrostatic_sum_one_third
 end subroutine f90wrap_real_space_electrostatic_sum__get__one_third
 
-! End of module real_space_electrostatic_sum defined in file ../source/real_space_electrostatic_sum.f90
+! End of module real_space_electrostatic_sum defined in file real_space_electrostatic_sum.f90
 
