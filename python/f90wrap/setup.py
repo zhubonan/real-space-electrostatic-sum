@@ -3,7 +3,7 @@ from numpy.distutils.core import Extension
 from numpy.distutils.core import setup
 import os
 
-source_folder = os.path.join(os.path.dirname(__file__), '../../source')
+source_folder = os.path.join(os.path.dirname(__file__), 'rsum/extension')
 
 ext1 = Extension(name='rsum.extension._rsumf',
                  sources=[

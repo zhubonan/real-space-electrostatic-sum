@@ -25,9 +25,7 @@ import os
 import sys
 import unittest
 
-from rsumf import real_space_electrostatic_sum
-
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from rsum.extension import real_space_electrostatic_sum
 
 class TestRealSpaceElectrostaticSum(unittest.TestCase):
 
