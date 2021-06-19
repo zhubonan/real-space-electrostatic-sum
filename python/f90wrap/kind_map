@@ -1,0 +1,4 @@
+{ 'real': {'': 'float', '4': 'float', 'sp': 'float', '8': 'double', 'dp': 'double', '16': 'long_double', 'qp': 'long_double'}, 
+  'complex' : {'': 'complex_float', '4': 'complex_float', 'sp': 'complex_float', 'spc': 'complex_float', '8': 'complex_double', 'dp': 'complex_double', 'dpc': 'complex_double', '16': 'complex_long_double', 'qp': 'complex_long_double', 'qpc': 'complex_long_double'}, 
+  'integer' : {'': 'int', 'i1': 'signed_char', 'i2': 'short', '4': 'int', 'i4': 'int', '8': 'long_long', 'i8': 'long_long'}, 
+}
